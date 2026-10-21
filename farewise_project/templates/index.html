@@ -4,13 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#123b2a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <title>FareWise — Fare & Route Comparator</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/app.js" defer></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/">🧭 FareWise</a>
     <span class="top-note">Nigeria • Fare & Route Comparator</span>
+    <button class="install-button" id="install-app" type="button" hidden>Install app</button>
   </header>
 
   <main class="container">
@@ -19,6 +26,7 @@
         <p class="eyebrow">TRAVEL SMARTER</p>
         <h1>Compare your journey.<br><span>Choose what works for you.</span></h1>
         <p class="hero-copy">Compare estimated transport costs and journey times before you travel.</p>
+        <p class="install-help">Android: use the Install app button or browser menu. iPhone: open this page in Safari, tap Share, then Add to Home Screen.</p>
       </div>
       <div class="hero-mark" aria-hidden="true">₦</div>
     </section>

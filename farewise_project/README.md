@@ -36,6 +36,12 @@ If your terminal says `python3` is missing, install Python 3 using your Linux di
 - Vercel's function filesystem is not persistent. This app uses `/tmp/farewise.db` there so it can start, but recent-search history may disappear between function instances or deployments. Use a hosted database for persistent history.
 - To override the database location, set `FAREWISE_DATABASE_PATH` to a writable path.
 
+## Install FareWise on a phone
+- Deploy the app over HTTPS, then open its URL on your phone.
+- On Android, tap **Install app** if offered, or choose **Install app** / **Add to Home screen** from the browser menu.
+- On iPhone, open the URL in Safari, tap **Share**, then choose **Add to Home Screen**.
+- FareWise is an installable web app, not a Play Store or Apple App Store package. Its page shell and stylesheet can load offline after a successful online visit; fare searches still need the server.
+
 ## Important limitations
 - Location list includes a representative city in all 36 states and the FCT, plus additional approximate demo landmarks in selected cities. These are not live GPS pickup points.
 - Fare amounts are illustrative estimates generated from a simple rate formula. They are NOT current quotes from transport companies.

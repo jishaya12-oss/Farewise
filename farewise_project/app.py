@@ -1,10 +1,11 @@
 import os
 import sqlite3
 from datetime import datetime
-from flask import Flask, render_template, request, g
+from flask import Flask, render_template, request, g, send_from_directory
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "public"))
 DATABASE = os.environ.get("FAREWISE_DATABASE_PATH") or os.path.join(
     "/tmp" if os.environ.get("VERCEL") == "1" else BASE_DIR,
     "farewise.db",
@@ -210,6 +211,26 @@ def index():
 @app.route("/health")
 def health():
     return {"status": "ok", "app": "FareWise"}
+
+@app.route("/manifest.webmanifest")
+def web_manifest():
+    return send_from_directory(
+        PUBLIC_DIR,
+        "manifest.webmanifest",
+        mimetype="application/manifest+json",
+    )
+
+@app.route("/service-worker.js")
+def service_worker():
+    return send_from_directory(PUBLIC_DIR, "service-worker.js")
+
+@app.route("/app.js")
+def app_script():
+    return send_from_directory(PUBLIC_DIR, "app.js")
+
+@app.route("/icons/<path:filename>")
+def app_icon(filename):
+    return send_from_directory(os.path.join(PUBLIC_DIR, "icons"), filename)
 
 init_db()
 
