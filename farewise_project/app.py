@@ -688,6 +688,18 @@ def index():
     else:
         history = session.get("recent_searches", [])
 
+    location_keys = {
+        place["label"]: key for key, place in LOCATIONS.items()
+    }
+    history = [
+        {
+            **dict(item),
+            "origin_key": location_keys.get(item["origin"]),
+            "destination_key": location_keys.get(item["destination"]),
+        }
+        for item in history
+    ]
+
     return render_template(
         "index.html",
         locations=LOCATIONS,
@@ -698,6 +710,7 @@ def index():
         departure_date=departure_date,
         adults=adults,
         today=date.today().isoformat(),
+        replay_date=(date.today() + timedelta(days=1)).isoformat(),
         history=history
     )
 

@@ -56,7 +56,7 @@ WHERE email = lower('admin@example.com');
 ```
 
 - Admins can view subscribers and manually change their access and plan. Free registration is enabled. Paystack checkout is not active and no one is charged; set plan prices and configure/test Paystack before enabling payments.
-- Signed-in subscribers see searches saved to their account; guests see a private recent-journey list held in their browser session.
+- Signed-in subscribers see searches saved to their account; guests see a private recent-journey list held in their browser session. Each journey has a **Search again** action that reuses the route with tomorrow's date and one adult passenger.
 
 ## Install FareWise on a phone
 - Deploy the app over HTTPS, then open its URL on your phone.

@@ -199,6 +199,15 @@
       <div class="history-row">
         <div><strong>{{ item.origin }}</strong><span> → {{ item.destination }}</span><small>{{ item.created_at[:16].replace('T', ' ') }}</small></div>
         <span>{{ item.distance_km }} km</span>
+        {% if item.origin_key and item.destination_key %}
+        <form class="history-replay-form" method="post" action="/">
+          <input type="hidden" name="origin" value="{{ item.origin_key }}">
+          <input type="hidden" name="destination" value="{{ item.destination_key }}">
+          <input type="hidden" name="departure_date" value="{{ replay_date }}">
+          <input type="hidden" name="adults" value="1">
+          <button class="history-replay-button" type="submit">Search again</button>
+        </form>
+        {% endif %}
       </div>
       {% endfor %}
     </section>

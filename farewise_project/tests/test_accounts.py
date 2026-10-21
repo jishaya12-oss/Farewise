@@ -291,6 +291,35 @@ class AccountFlowTests(unittest.TestCase):
         self.assertIn(b"Your recent journeys", response.data)
         self.assertIn(b"Abuja City Gate", response.data)
         self.assertIn(b"Tafawa Balewa Square, Lagos", response.data)
+        self.assertIn(b'class="history-replay-button" type="submit">Search again', response.data)
+        self.assertIn(b'name="origin" value="abuja_city_gate"', response.data)
+        self.assertIn(b'name="destination" value="lagos_tbs"', response.data)
+        self.assertIn(
+            f'name="departure_date" value="{tomorrow}"'.encode(),
+            response.data,
+        )
+
+        with patch.object(
+            farewise,
+            "get_road_route",
+            return_value={
+                "distance_km": 800,
+                "drive_minutes": 900,
+                "source": "Test road estimate",
+                "alternatives": 1,
+            },
+        ):
+            repeated_search = self.client.post(
+                "/",
+                data={
+                    "origin": "abuja_city_gate",
+                    "destination": "lagos_tbs",
+                    "departure_date": tomorrow,
+                    "adults": "1",
+                },
+            )
+        self.assertEqual(repeated_search.status_code, 200)
+        self.assertGreaterEqual(repeated_search.data.count(b"Search again"), 2)
 
         next_page = self.client.get("/")
         self.assertIn(b"Your recent journeys", next_page.data)
