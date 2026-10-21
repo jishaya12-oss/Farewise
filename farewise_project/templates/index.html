@@ -25,14 +25,21 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit">Log out</button>
       </form>
-      {% elif auth_enabled %}
+      {% else %}
       <a href="{{ url_for('login') }}">Log in</a>
       <a class="account-signup" href="{{ url_for('register') }}">Sign up</a>
+      <a href="{{ url_for('admin_dashboard') }}">Admin</a>
       {% endif %}
     </nav>
   </header>
 
   <main class="container">
+    {% if not auth_enabled %}
+    <p class="account-setup-notice" role="status">
+      Login and admin features need deployment setup. Configure <code>DATABASE_URL</code>
+      and <code>FAREWISE_SECRET_KEY</code> to enable accounts.
+    </p>
+    {% endif %}
     <section class="hero">
       <div>
         <p class="eyebrow">TRAVEL SMARTER</p>

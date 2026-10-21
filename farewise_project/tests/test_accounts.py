@@ -70,6 +70,13 @@ class AccountFlowTests(unittest.TestCase):
                 self.assertEqual(asset.status_code, 200)
                 asset.close()
 
+    def test_login_and_admin_entry_points_are_visible_to_guests(self):
+        response = self.client.get("/")
+        self.assertIn(b'href="/login">Log in</a>', response.data)
+        self.assertIn(b'href="/register">Sign up</a>', response.data)
+        self.assertIn(b'href="/admin">Admin</a>', response.data)
+        self.assertEqual(self.client.get("/admin").status_code, 302)
+
     def register(self, email, password="correct-horse-battery"):
         token = self.csrf_token("/register")
         return self.client.post(
@@ -180,6 +187,8 @@ class AccountFlowTests(unittest.TestCase):
         self.login("admin@example.com")
         dashboard = self.client.get("/admin")
         self.assertEqual(dashboard.status_code, 200)
+        homepage = self.client.get("/")
+        self.assertIn(b'href="/admin">Admin</a>', homepage.data)
         self.assertIn(b"Paystack checkout remains disabled", dashboard.data)
 
         token = self.csrf_token("/admin")

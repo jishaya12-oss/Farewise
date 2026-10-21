@@ -19,6 +19,8 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: Inte
 .account-nav form { margin: 0; }
 .account-nav button, .subscriber-form button { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: white; color: var(--green); font: inherit; font-weight: 700; cursor: pointer; }
 .account-nav .account-signup { border-radius: 8px; padding: 9px 11px; background: var(--green); color: white; }
+.account-setup-notice { margin: 16px auto 0; padding: 12px 14px; border: 1px solid #e5d59a; border-radius: 10px; background: #fff9df; color: #614d13; font-size: 13px; line-height: 1.5; }
+.account-setup-notice code { font-size: 12px; font-weight: 700; }
 .install-actions { display: grid; justify-items: start; gap: 10px; margin-top: 16px; }
 .install-button { min-height: 44px; border: 0; border-radius: 9px; padding: 11px 16px; background: var(--green); color: white; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
 .install-button:hover { background: var(--green-2); }

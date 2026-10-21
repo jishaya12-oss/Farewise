@@ -46,6 +46,7 @@ If your terminal says `python3` is missing, install Python 3 using your Linux di
 
 ## Subscriber login and administration
 - Subscribers can create a free account at `/register`, then sign in at `/login`. Passwords are stored as scrypt hashes.
+- The homepage always shows login, sign-up, and admin entry points. The admin route still requires an administrator account; regular subscribers cannot access it.
 - The first administrator must first register an account. After the app has created the `farewise_users` table in Supabase, run this in the Supabase SQL Editor, replacing the email:
 
 ```sql
