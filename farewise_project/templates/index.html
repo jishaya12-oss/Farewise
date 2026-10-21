@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2a">
+  <title>FareWise — Fare & Route Comparator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🧭 FareWise</a>
+    <span class="top-note">Nigeria • Fare & Route Comparator</span>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">TRAVEL SMARTER</p>
+        <h1>Compare your journey.<br><span>Choose what works for you.</span></h1>
+        <p class="hero-copy">Compare estimated transport costs and journey times before you travel.</p>
+      </div>
+      <div class="hero-mark" aria-hidden="true">₦</div>
+    </section>
+
+    <section class="search-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">PLAN YOUR TRIP</p>
+          <h2>Where are you going?</h2>
+        </div>
+        <span class="pill">Demo version</span>
+      </div>
+
+      <form method="POST" action="/">
+        <div class="form-grid">
+          <label>
+            <span>Starting point</span>
+            <select name="origin" required>
+              {% for key, place in locations.items() %}
+              <option value="{{ key }}" {% if key == origin %}selected{% endif %}>{{ place.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Destination</span>
+            <select name="destination" required>
+              {% for key, place in locations.items() %}
+              <option value="{{ key }}" {% if key == destination %}selected{% endif %}>{{ place.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Compare fares <span aria-hidden="true">→</span></button>
+      </form>
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      <p class="microcopy">Locations are sample landmarks. Fares are estimates, not live operator quotes.</p>
+    </section>
+
+    {% if results %}
+    <section class="results">
+      <div class="results-title">
+        <div>
+          <p class="eyebrow">YOUR COMPARISON</p>
+          <h2>Choose your best option</h2>
+        </div>
+        <span class="distance">{{ results.distance_km }} km estimated</span>
+      </div>
+
+      <div class="route-strip">
+        <div><span class="route-dot start"></span><span>{{ results.origin.label }}</span></div>
+        <div class="route-line"></div>
+        <div><span class="route-dot end"></span><span>{{ results.destination.label }}</span></div>
+      </div>
+
+      <div class="recommendations">
+        <article class="recommendation">
+          <span class="rec-icon">₦</span>
+          <div><p>Lowest estimated fare</p><strong>{{ results.cheapest }}</strong></div>
+        </article>
+        <article class="recommendation">
+          <span class="rec-icon">◷</span>
+          <div><p>Shortest estimated time</p><strong>{{ results.fastest }}</strong></div>
+        </article>
+      </div>
+
+      <div class="option-list">
+        {% for option in results.options|sort(attribute='fare') %}
+        <article class="option">
+          <div class="transport-icon">{{ option.icon }}</div>
+          <div class="option-main">
+            <h3>{{ option.name }}</h3>
+            <p>About {{ option.minutes }} minutes</p>
+            {% if option.name == results.cheapest %}<span class="tag">Cheapest</span>{% endif %}
+            {% if option.name == results.fastest %}<span class="tag fast-tag">Fastest</span>{% endif %}
+          </div>
+          <div class="price">₦{{ "{:,.0f}".format(option.fare) }}</div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <p class="data-note"><strong>Route data:</strong> {{ results.source }}. {% if results.alternatives > 1 %}The routing service returned {{ results.alternatives }} route alternatives; this demo currently compares transport estimates using the recommended route distance.{% endif %}</p>
+      <a class="map-link" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route={{ results.origin.lat }}%2C{{ results.origin.lon }}%3B{{ results.destination.lat }}%2C{{ results.destination.lon }}">Open route in OpenStreetMap ↗</a>
+    </section>
+    {% endif %}
+
+    <section class="how">
+      <p class="eyebrow">HOW IT WORKS</p>
+      <h2>One journey. Clearer choices.</h2>
+      <div class="how-grid">
+        <article><span>01</span><h3>Enter locations</h3><p>Select your start and destination from supported landmarks.</p></article>
+        <article><span>02</span><h3>Compare options</h3><p>Review sample fares and estimated travel times side by side.</p></article>
+        <article><span>03</span><h3>Travel informed</h3><p>Choose the price or journey time that suits your needs.</p></article>
+      </div>
+    </section>
+
+    {% if history %}
+    <section class="history">
+      <p class="eyebrow">RECENT SEARCHES</p>
+      <h2>Journey history on this device</h2>
+      {% for item in history %}
+      <div class="history-row">
+        <div><strong>{{ item.origin }}</strong><span> → {{ item.destination }}</span><small>{{ item.created_at[:16].replace('T', ' ') }}</small></div>
+        <span>{{ item.distance_km }} km</span>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <footer>
+      <p>© 2026 FareWise • Prototype for learning and demonstration</p>
+      <p>Map data © OpenStreetMap contributors. Road estimates provided by OSRM when available.</p>
+    </footer>
+  </main>
+</body>
+</html>
