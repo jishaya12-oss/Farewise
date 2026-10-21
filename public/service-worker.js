@@ -4,8 +4,8 @@ const APP_SHELL = [
   "/static/style.css",
   "/app.js",
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/static/") || url.pathname.startsWith("/icons/") ||
+  if (url.pathname.startsWith("/static/") ||
       url.pathname === "/app.js" || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       caches.match(request).then((cached) => {

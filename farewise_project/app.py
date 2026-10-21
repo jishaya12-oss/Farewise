@@ -5,7 +5,6 @@ from flask import Flask, render_template, request, g, send_from_directory
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PUBLIC_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "public"))
 DATABASE = os.environ.get("FAREWISE_DATABASE_PATH") or os.path.join(
     "/tmp" if os.environ.get("VERCEL") == "1" else BASE_DIR,
     "farewise.db",
@@ -136,6 +135,25 @@ def estimate_straight_distance(origin, destination):
     h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     return 2 * earth_km * atan2(sqrt(h), sqrt(1 - h)) * 1.3
 
+def estimate_flight(origin, destination):
+    """Return illustrative air-travel values; this does not check airports or flights."""
+    from math import radians, sin, cos, sqrt, atan2
+
+    start, end = LOCATIONS[origin], LOCATIONS[destination]
+    lat1, lat2 = radians(start["lat"]), radians(end["lat"])
+    dlat = lat2 - lat1
+    dlon = radians(end["lon"] - start["lon"])
+    h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    distance_km = 6371 * 2 * atan2(sqrt(h), sqrt(1 - h))
+
+    fare = round((25000 + distance_km * 90) / 1000) * 1000
+    flight_minutes = max(35, round(distance_km / 700 * 60))
+    return {
+        "distance_km": round(distance_km, 1),
+        "fare": fare,
+        "minutes": 90 + flight_minutes,
+    }
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     results = None
@@ -179,6 +197,7 @@ def index():
                 "origin": LOCATIONS[origin],
                 "destination": LOCATIONS[destination],
                 "distance_km": round(distance_km, 1),
+                "flight": estimate_flight(origin, destination),
                 "drive_minutes": round(drive_minutes),
                 "source": source,
                 "alternatives": alternatives,
@@ -215,22 +234,27 @@ def health():
 @app.route("/manifest.webmanifest")
 def web_manifest():
     return send_from_directory(
-        PUBLIC_DIR,
+        os.path.join(BASE_DIR, "static"),
         "manifest.webmanifest",
         mimetype="application/manifest+json",
     )
 
 @app.route("/service-worker.js")
 def service_worker():
-    return send_from_directory(PUBLIC_DIR, "service-worker.js")
+    response = send_from_directory(
+        os.path.join(BASE_DIR, "static"),
+        "service-worker.js",
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 @app.route("/app.js")
 def app_script():
-    return send_from_directory(PUBLIC_DIR, "app.js")
+    return send_from_directory(os.path.join(BASE_DIR, "static"), "app.js")
 
 @app.route("/icons/<path:filename>")
 def app_icon(filename):
-    return send_from_directory(os.path.join(PUBLIC_DIR, "icons"), filename)
+    return send_from_directory(os.path.join(BASE_DIR, "static", "icons"), filename)
 
 init_db()
 

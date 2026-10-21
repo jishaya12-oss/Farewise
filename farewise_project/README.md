@@ -7,6 +7,7 @@ A beginner-friendly Flask prototype for comparing estimated transport fares and 
 - Starting point and destination selection
 - Road distance and driving-duration lookup through OSRM when available
 - Estimated bus/shared-minibus, shared-taxi, and private-taxi fares
+- Illustrative air-fare and journey-time estimates using straight-line distance
 - Cheapest and fastest labels
 - SQLite recent-search history
 - OpenStreetMap directions link
@@ -40,11 +41,13 @@ If your terminal says `python3` is missing, install Python 3 using your Linux di
 - Deploy the app over HTTPS, then open its URL on your phone.
 - On Android, tap **Install app** if offered, or choose **Install app** / **Add to Home screen** from the browser menu.
 - On iPhone, open the URL in Safari, tap **Share**, then choose **Add to Home Screen**.
+- If installation is unavailable, confirm `/manifest.webmanifest`, `/service-worker.js`, `/static/icons/icon-192.png`, and `/static/icons/icon-512.png` all load without a 404 on the deployed site.
 - FareWise is an installable web app, not a Play Store or Apple App Store package. Its page shell and stylesheet can load offline after a successful online visit; fare searches still need the server.
 
 ## Important limitations
 - Location list includes a representative city in all 36 states and the FCT, plus additional approximate demo landmarks in selected cities. These are not live GPS pickup points.
 - Fare amounts are illustrative estimates generated from a simple rate formula. They are NOT current quotes from transport companies.
+- Air estimates are especially approximate: they use landmark-to-landmark straight-line distance and do not verify airports, available routes, airline schedules, seats, or ticket prices.
 - OSRM may be unavailable, slow, or rate-limited. The app falls back to a rough distance estimate.
 - OSRM road routing does not tell the app actual bus routes, public transport schedules, traffic in real time, or operator fares.
 - The built-in Flask server is for local development only. Do not deploy it publicly with debug mode enabled.
