@@ -256,6 +256,47 @@ class AccountFlowTests(unittest.TestCase):
             ).fetchall()
         self.assertEqual(history, [])
 
+    def test_guest_recent_journeys_are_saved_and_private_to_the_browser(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        with patch.object(
+            farewise,
+            "get_road_route",
+            return_value={
+                "distance_km": 800,
+                "drive_minutes": 900,
+                "source": "Test road estimate",
+                "alternatives": 1,
+            },
+        ):
+            response = self.client.post(
+                "/",
+                data={
+                    "origin": "abuja_city_gate",
+                    "destination": "lagos_tbs",
+                    "departure_date": tomorrow,
+                    "adults": "1",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Your recent journeys", response.data)
+        self.assertIn(b"Abuja City Gate", response.data)
+        self.assertIn(b"Tafawa Balewa Square, Lagos", response.data)
+
+        next_page = self.client.get("/")
+        self.assertIn(b"Your recent journeys", next_page.data)
+        self.assertIn(b"Abuja City Gate", next_page.data)
+
+        other_browser = farewise.app.test_client()
+        private_page = other_browser.get("/")
+        self.assertNotIn(b"Your recent journeys", private_page.data)
+
+        with farewise.app.app_context():
+            guest_search_count = farewise.get_db().execute(
+                "SELECT COUNT(*) AS count FROM searches WHERE user_id IS NULL"
+            ).fetchone()["count"]
+        self.assertEqual(guest_search_count, 0)
+
     def test_production_auth_requires_persistent_database_and_secret(self):
         original_vercel = os.environ.get("VERCEL")
         original_database_url = farewise.DATABASE_URL

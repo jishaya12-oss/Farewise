@@ -657,16 +657,26 @@ def index():
                 "cheapest": cheapest["name"],
                 "fastest": fastest["name"],
             }
-            db = get_db()
-            db.execute(
-                "INSERT INTO searches "
-                "(origin, destination, distance_km, created_at, user_id) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (LOCATIONS[origin]["label"], LOCATIONS[destination]["label"],
-                 round(distance_km, 1), datetime.now().isoformat(timespec="seconds"),
-                 user["id"] if user else None)
-            )
-            db.commit()
+            created_at = datetime.now().isoformat(timespec="seconds")
+            if user:
+                db = get_db()
+                db.execute(
+                    "INSERT INTO searches "
+                    "(origin, destination, distance_km, created_at, user_id) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (LOCATIONS[origin]["label"], LOCATIONS[destination]["label"],
+                     round(distance_km, 1), created_at, user["id"])
+                )
+                db.commit()
+            else:
+                recent_searches = session.get("recent_searches", [])
+                recent_searches.insert(0, {
+                    "origin": LOCATIONS[origin]["label"],
+                    "destination": LOCATIONS[destination]["label"],
+                    "distance_km": round(distance_km, 1),
+                    "created_at": created_at,
+                })
+                session["recent_searches"] = recent_searches[:5]
 
     history = []
     if user:
@@ -675,6 +685,8 @@ def index():
             "WHERE user_id = ? ORDER BY id DESC LIMIT 5",
             (user["id"],),
         ).fetchall()
+    else:
+        history = session.get("recent_searches", [])
 
     return render_template(
         "index.html",

@@ -184,6 +184,19 @@
     </section>
     {% endif %}
 
+    {% if history %}
+    <section class="history">
+      <p class="eyebrow">RECENT JOURNEYS</p>
+      <h2>Your recent journeys</h2>
+      {% for item in history %}
+      <div class="history-row">
+        <div><strong>{{ item.origin }}</strong><span> → {{ item.destination }}</span><small>{{ item.created_at[:16].replace('T', ' ') }}</small></div>
+        <span>{{ item.distance_km }} km</span>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
     <section class="how">
       <p class="eyebrow">HOW IT WORKS</p>
       <h2>One journey. Clearer choices.</h2>
@@ -193,19 +206,6 @@
         <article><span>03</span><h3>Travel informed</h3><p>Choose the price or journey time that suits your needs.</p></article>
       </div>
     </section>
-
-    {% if history %}
-    <section class="history">
-      <p class="eyebrow">RECENT SEARCHES</p>
-      <h2>Journey history on this device</h2>
-      {% for item in history %}
-      <div class="history-row">
-        <div><strong>{{ item.origin }}</strong><span> → {{ item.destination }}</span><small>{{ item.created_at[:16].replace('T', ' ') }}</small></div>
-        <span>{{ item.distance_km }} km</span>
-      </div>
-      {% endfor %}
-    </section>
-    {% endif %}
 
     <footer>
       <p>© 2026 FareWise • Prototype for learning and demonstration</p>

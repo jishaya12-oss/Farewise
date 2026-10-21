@@ -10,7 +10,7 @@ A beginner-friendly Flask prototype for comparing estimated transport fares and 
 - Live one-way airline offers through Amadeus when production API credentials are configured
 - Flight searches by departure date and adult passenger count
 - Cheapest and fastest labels
-- SQLite recent-search history
+- Private recent-journey history for signed-in subscribers and browser-session history for guests
 - Subscriber registration, login, and account pages
 - Admin dashboard for manually managing subscriber access
 - OpenStreetMap directions link
@@ -55,7 +55,7 @@ WHERE email = lower('admin@example.com');
 ```
 
 - Admins can view subscribers and manually change their access and plan. Free registration is enabled. Paystack checkout is not active and no one is charged; set plan prices and configure/test Paystack before enabling payments.
-- Recent searches are tied to the signed-in subscriber so users do not see one another's history.
+- Signed-in subscribers see searches saved to their account; guests see a private recent-journey list held in their browser session.
 
 ## Install FareWise on a phone
 - Deploy the app over HTTPS, then open its URL on your phone.
