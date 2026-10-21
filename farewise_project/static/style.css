@@ -13,6 +13,12 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: Inte
 .topbar { min-height: 68px; background: var(--white); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 max(22px, calc((100vw - 1080px)/2)); }
 .brand { font-weight: 850; font-size: 21px; color: var(--green); text-decoration: none; letter-spacing: -.5px; }
 .top-note { color: var(--muted); font-size: 13px; }
+.account-nav { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.account-nav a { color: var(--green-2); font-weight: 700; text-decoration: none; }
+.account-nav a:hover { text-decoration: underline; }
+.account-nav form { margin: 0; }
+.account-nav button, .subscriber-form button { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: white; color: var(--green); font: inherit; font-weight: 700; cursor: pointer; }
+.account-nav .account-signup { border-radius: 8px; padding: 9px 11px; background: var(--green); color: white; }
 .install-button { border: 0; border-radius: 9px; padding: 10px 13px; background: var(--green); color: white; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
 .install-button:hover { background: var(--green-2); }
 .install-button[hidden] { display: none; }
@@ -30,10 +36,14 @@ h2 { font-size: 23px; letter-spacing: -.6px; margin: 0; }
 .pill { border-radius: 100px; background: var(--mint); color: var(--green-2); padding: 7px 11px; font-size: 11px; font-weight: 750; white-space: nowrap; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 label { display: flex; flex-direction: column; gap: 9px; font-size: 13px; font-weight: 700; }
-select { width: 100%; min-height: 49px; padding: 0 12px; border: 1px solid #d7e1d9; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-weight: 500; }
-select:focus { outline: 3px solid #c5e7d2; border-color: var(--green-2); }
+select, input[type="date"] { width: 100%; min-height: 49px; padding: 0 12px; border: 1px solid #d7e1d9; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-weight: 500; }
+select:focus, input[type="date"]:focus { outline: 3px solid #c5e7d2; border-color: var(--green-2); }
 .primary-button { margin-top: 19px; width: 100%; min-height: 51px; display: flex; justify-content: center; align-items: center; gap: 10px; border: 0; border-radius: 11px; background: var(--green); color: white; font-size: 15px; font-weight: 750; cursor: pointer; }
 .primary-button:hover { background: var(--green-2); }
+.air-hint { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf7; }
+.air-hint > span { font-size: 20px; line-height: 1.3; }
+.air-hint p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.air-hint strong { color: var(--green); }
 .microcopy, .data-note { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .error { color: #a12c2c; background: #fff0f0; padding: 10px 12px; border-radius: 8px; }
 .results { margin-top: 24px; }
@@ -77,10 +87,35 @@ select:focus { outline: 3px solid #c5e7d2; border-color: var(--green-2); }
 .history-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 12px 0; font-size: 12px; }
 .history-row small { display: block; color: var(--muted); margin-top: 5px; }
 .history-row > span { white-space: nowrap; font-weight: 750; }
+.auth-container { max-width: 760px; padding: 44px 0; }
+.auth-card { max-width: 540px; margin: 0 auto; }
+.auth-card h1, .admin-container h1 { font-size: clamp(28px, 5vw, 38px); letter-spacing: -1px; margin-bottom: 20px; }
+.auth-card form:not(.subscriber-form) { display: grid; gap: 16px; }
+.auth-card label, .subscriber-form label { gap: 8px; }
+.auth-card input, .subscriber-form select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #d7e1d9; border-radius: 9px; background: #fff; color: var(--ink); font: inherit; font-weight: 500; }
+.auth-card .primary-button { text-decoration: none; }
+.account-action { display: flex; text-decoration: none; }
+.auth-card .error, .admin-container .error { color: #a12c2c; background: #fff0f0; padding: 10px 12px; border-radius: 8px; }
+.auth-card .success, .admin-container .success { color: var(--green-2); background: var(--mint); padding: 10px 12px; border-radius: 8px; }
+.account-details { display: grid; gap: 0; margin: 20px 0; }
+.account-details div { display: flex; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.account-details dt { color: var(--muted); font-size: 13px; }
+.account-details dd { margin: 0; font-size: 13px; font-weight: 750; }
+.subscriber-list { display: grid; gap: 12px; margin-top: 22px; }
+.subscriber-card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.subscriber-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.subscriber-heading strong { overflow-wrap: anywhere; }
+.subscriber-heading span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.subscriber-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 12px; margin-top: 14px; }
+.subscriber-form label { font-size: 12px; }
+.subscriber-form select { min-height: 40px; padding: 8px; }
+.subscriber-form button { min-height: 40px; background: var(--green); color: white; }
+.empty-state { color: var(--muted); padding: 20px 0; }
 footer { text-align: center; padding: 10px 0 25px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 @media (max-width: 640px) {
-  .topbar { min-height: 60px; padding: 8px 14px; }
+  .topbar { min-height: 60px; padding: 8px 14px; flex-wrap: wrap; }
   .top-note { display: none; }
+  .account-nav { gap: 8px; }
   .install-button { padding: 9px 11px; }
   .container { width: min(100% - 28px, 1000px); }
   .hero { padding: 36px 0 24px; }
@@ -96,4 +131,7 @@ footer { text-align: center; padding: 10px 0 25px; color: var(--muted); font-siz
   .flight-card { padding: 14px; }
   .flight-heading { gap: 9px; }
   .flight-heading h3 { font-size: 14px; }
+  .subscriber-form { grid-template-columns: 1fr 1fr; }
+  .subscriber-form button { grid-column: 1 / -1; }
+  .subscriber-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
 }

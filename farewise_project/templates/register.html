@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2a">
+  <title>Create an account — FareWise</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🧭 FareWise</a>
+    <nav class="account-nav"><a href="{{ url_for('login') }}">Log in</a></nav>
+  </header>
+  <main class="container auth-container">
+    <section class="search-card auth-card">
+      <p class="eyebrow">JOIN FAREWISE</p>
+      <h1>Create a free account</h1>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}<p class="{{ category }}" role="alert">{{ message }}</p>{% endfor %}
+      {% endwith %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="256"></label>
+        <p class="microcopy">Use at least 10 characters. Registration is free; paid plans and Paystack checkout are not enabled yet.</p>
+        <button class="primary-button" type="submit">Create account</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

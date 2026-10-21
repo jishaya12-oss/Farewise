@@ -17,6 +17,19 @@
   <header class="topbar">
     <a class="brand" href="/">🧭 FareWise</a>
     <span class="top-note">Nigeria • Fare & Route Comparator</span>
+    <nav class="account-nav" aria-label="Account">
+      {% if current_user %}
+      <a href="{{ url_for('account') }}">My account</a>
+      {% if current_user.role == 'admin' %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
+      <form method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit">Log out</button>
+      </form>
+      {% elif auth_enabled %}
+      <a href="{{ url_for('login') }}">Log in</a>
+      <a class="account-signup" href="{{ url_for('register') }}">Sign up</a>
+      {% endif %}
+    </nav>
     <button class="install-button" id="install-app" type="button" hidden>Install app</button>
   </header>
 
@@ -62,11 +75,27 @@
               {% endfor %}
             </select>
           </label>
+          <label>
+            <span>Departure date</span>
+            <input type="date" name="departure_date" min="{{ today }}" value="{{ departure_date }}" required>
+          </label>
+          <label>
+            <span>Adult passengers</span>
+            <select name="adults" required>
+              {% for count in range(1, 10) %}
+              <option value="{{ count }}" {% if count|string == adults|string %}selected{% endif %}>{{ count }}</option>
+              {% endfor %}
+            </select>
+          </label>
         </div>
-        <button class="primary-button" type="submit">Compare fares <span aria-hidden="true">→</span></button>
+        <button class="primary-button" type="submit">Compare road &amp; air fares <span aria-hidden="true">→</span></button>
       </form>
       {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-      <p class="microcopy">Locations are sample landmarks. Fares are estimates, not live operator quotes.</p>
+      <aside class="air-hint">
+        <span aria-hidden="true">✈️</span>
+        <p><strong>Travelling by air?</strong> Enter your travel date and passenger count to check available airline offers.</p>
+      </aside>
+      <p class="microcopy">Road fares are estimates, not current operator prices. Flight prices are live only when Amadeus API credentials are connected.</p>
     </section>
 
     {% if results %}
@@ -88,11 +117,11 @@
       <div class="recommendations">
         <article class="recommendation">
           <span class="rec-icon">₦</span>
-          <div><p>Lowest estimated fare</p><strong>{{ results.cheapest }}</strong></div>
+          <div><p>Lowest estimated road fare</p><strong>{{ results.cheapest }}</strong></div>
         </article>
         <article class="recommendation">
           <span class="rec-icon">◷</span>
-          <div><p>Shortest estimated time</p><strong>{{ results.fastest }}</strong></div>
+          <div><p>Shortest estimated road time</p><strong>{{ results.fastest }}</strong></div>
         </article>
       </div>
 
@@ -116,22 +145,39 @@
           <span class="transport-icon" aria-hidden="true">✈️</span>
           <div>
             <p class="eyebrow">AIR TRAVEL</p>
-            <h3 id="flight-heading">Illustrative flight estimate</h3>
+            <h3 id="flight-heading">Flight prices for {{ results.departure_date }}</h3>
           </div>
-          <div class="price">₦{{ "{:,.0f}".format(results.flight.fare) }}</div>
         </div>
-        <p class="flight-details">
-          About {{ results.flight.distance_km }} km by air ·
-          {{ results.flight.minutes }} minutes including a 90-minute airport allowance
-        </p>
+        {% if results.flight_offers %}
+        <div class="option-list">
+          {% for offer in results.flight_offers %}
+          <article class="option">
+            <div class="transport-icon" aria-hidden="true">✈️</div>
+            <div class="option-main">
+              <h3>{{ offer.airlines or "Airline offer" }}</h3>
+              <p>
+                {{ offer.stops }} stop{% if offer.stops != 1 %}s{% endif %}
+                {% if offer.duration_minutes %} · about {{ offer.duration_minutes // 60 }}h {{ offer.duration_minutes % 60 }}m{% endif %}
+              </p>
+              {% if loop.first %}<span class="tag">Lowest live offer</span>{% endif %}
+            </div>
+            <div class="price">{{ offer.currency }} {{ "{:,.2f}".format(offer.total) }}</div>
+          </article>
+          {% endfor %}
+        </div>
         <p class="data-note">
-          This is a sample estimate, not an airline quote. Airports, direct routes,
-          schedules, seat availability, and fares are not checked. Confirm all details
-          with an airline before booking.
+          {{ results.adults }} adult passenger{% if results.adults != 1 %}s{% endif %} ·
+          Prices retrieved from Amadeus at {{ results.flight_checked_at }}.
+          Availability and final price can change before booking.
         </p>
+        {% elif results.flight_error %}
+        <p class="data-note" role="status">{{ results.flight_error }}</p>
+        {% else %}
+        <p class="data-note" role="status">No flight offers were returned for this route and date. Try another date or check directly with an airline.</p>
+        {% endif %}
       </section>
 
-      <p class="data-note"><strong>Route data:</strong> {{ results.source }}. {% if results.alternatives > 1 %}The routing service returned {{ results.alternatives }} route alternatives; this demo currently compares transport estimates using the recommended route distance.{% endif %}</p>
+      <p class="data-note"><strong>Road estimate:</strong> {{ results.source }}. These road fares are calculated estimates, not live bus, taxi, or operator quotes. {% if results.alternatives > 1 %}The routing service returned {{ results.alternatives }} route alternatives; this demo currently uses the recommended route distance.{% endif %}</p>
       <a class="map-link" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route={{ results.origin.lat }}%2C{{ results.origin.lon }}%3B{{ results.destination.lat }}%2C{{ results.destination.lon }}">Open route in OpenStreetMap ↗</a>
     </section>
     {% endif %}
@@ -141,7 +187,7 @@
       <h2>One journey. Clearer choices.</h2>
       <div class="how-grid">
         <article><span>01</span><h3>Enter locations</h3><p>Select your start and destination from supported landmarks.</p></article>
-        <article><span>02</span><h3>Compare options</h3><p>Review sample fares and estimated travel times side by side.</p></article>
+        <article><span>02</span><h3>Compare options</h3><p>Review estimated road fares and live flight offers when connected.</p></article>
         <article><span>03</span><h3>Travel informed</h3><p>Choose the price or journey time that suits your needs.</p></article>
       </div>
     </section>

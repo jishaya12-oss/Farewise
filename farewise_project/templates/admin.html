@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2a">
+  <title>Subscriber administration — FareWise</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🧭 FareWise</a>
+    <nav class="account-nav"><a href="{{ url_for('account') }}">My account</a></nav>
+  </header>
+  <main class="container auth-container admin-container">
+    <section class="search-card">
+      <p class="eyebrow">ADMINISTRATION</p>
+      <h1>Subscribers</h1>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}<p class="{{ category }}" role="status">{{ message }}</p>{% endfor %}
+      {% endwith %}
+      <p class="microcopy">Free registration is active. Subscription changes here are manual; Paystack checkout remains disabled until plans and prices are configured.</p>
+      {% if subscribers %}
+      <div class="subscriber-list">
+        {% for subscriber in subscribers %}
+        <article class="subscriber-card">
+          <div class="subscriber-heading">
+            <strong>{{ subscriber.email }}</strong>
+            <span>Joined {{ subscriber.created_at[:10] }}</span>
+          </div>
+          <form method="post" class="subscriber-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="subscriber_id" value="{{ subscriber.id }}">
+            <label>Access
+              <select name="subscription_status">
+                {% for value in ['free', 'active', 'suspended'] %}
+                <option value="{{ value }}" {% if value == subscriber.subscription_status %}selected{% endif %}>{{ value|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Plan
+              <select name="subscription_plan">
+                {% for value in ['free', 'monthly', 'yearly'] %}
+                <option value="{{ value }}" {% if value == subscriber.subscription_plan %}selected{% endif %}>{{ value|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit">Save</button>
+          </form>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-state">No subscribers have registered yet.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

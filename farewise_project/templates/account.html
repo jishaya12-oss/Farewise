@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2a">
+  <title>My account — FareWise</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🧭 FareWise</a>
+    <nav class="account-nav">
+      {% if user.role == 'admin' %}<a href="{{ url_for('admin_dashboard') }}">Admin dashboard</a>{% endif %}
+      <a href="{{ url_for('index') }}">Plan a trip</a>
+    </nav>
+  </header>
+  <main class="container auth-container">
+    <section class="search-card auth-card">
+      <p class="eyebrow">SUBSCRIBER ACCOUNT</p>
+      <h1>My account</h1>
+      <dl class="account-details">
+        <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
+        <div><dt>Access</dt><dd>{{ user.subscription_status|capitalize }}</dd></div>
+        <div><dt>Plan</dt><dd>{{ user.subscription_plan|capitalize }}</dd></div>
+      </dl>
+      <p class="microcopy">Free registration and fare comparisons are available. Online payments are not enabled yet.</p>
+      <a class="primary-button account-action" href="{{ url_for('index') }}">Compare fares</a>
+    </section>
+  </main>
+</body>
+</html>

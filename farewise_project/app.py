@@ -1,17 +1,92 @@
 import os
+import re
+import secrets
 import sqlite3
-from datetime import datetime
-from flask import Flask, render_template, request, g, send_from_directory
+from functools import wraps
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+from flask import (
+    Flask,
+    abort,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
+from werkzeug.security import check_password_hash, generate_password_hash
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 DATABASE = os.environ.get("FAREWISE_DATABASE_PATH") or os.path.join(
     "/tmp" if os.environ.get("VERCEL") == "1" else BASE_DIR,
     "farewise.db",
 )
+SECRET_KEY = os.environ.get("FAREWISE_SECRET_KEY") or (
+    None if os.environ.get("VERCEL") == "1" else "dev-only-change-this-key"
+)
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("FAREWISE_SECRET_KEY", "dev-only-change-this-key")
+app.config.update(
+    SECRET_KEY=SECRET_KEY,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("VERCEL") == "1",
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 12,
+)
+
+try:
+    from psycopg import IntegrityError as PsycopgIntegrityError
+    from psycopg.rows import dict_row
+except ImportError:
+    PsycopgIntegrityError = sqlite3.IntegrityError
+    dict_row = None
+
+
+class DatabaseConnection:
+    def __init__(self, connection, postgres=False):
+        self.connection = connection
+        self.postgres = postgres
+
+    def execute(self, statement, parameters=()):
+        if self.postgres:
+            cursor = self.connection.cursor()
+            cursor.execute(statement.replace("?", "%s"), parameters)
+            return cursor
+        return self.connection.execute(statement, parameters)
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+    def close(self):
+        self.connection.close()
+
+
+def connect_database():
+    if DATABASE_URL:
+        try:
+            import psycopg
+        except ImportError as error:
+            raise RuntimeError(
+                "Install the psycopg dependency to use DATABASE_URL."
+            ) from error
+        connection = psycopg.connect(
+            DATABASE_URL,
+            row_factory=dict_row,
+            sslmode="require",
+        )
+        return DatabaseConnection(connection, postgres=True)
+
+    connection = sqlite3.connect(DATABASE)
+    connection.row_factory = sqlite3.Row
+    return DatabaseConnection(connection)
 
 # Demo locations. Coordinates are approximate city landmarks, not exact pickup points.
 LOCATIONS = {
@@ -68,10 +143,34 @@ TRANSPORT = [
     {"name": "Private taxi", "rate": 500, "base": 700, "speed_kmh": 35, "icon": "🚗"},
 ]
 
+# Amadeus searches airport pairs; only cities with a known airport code are supported.
+AIRPORT_CODES = {
+    "Abuja": "ABV",
+    "Lagos": "LOS",
+    "Kano": "KAN",
+    "Ibadan": "IBA",
+    "Port Harcourt": "PHC",
+    "Yola": "YOL",
+    "Uyo": "QUO",
+    "Bauchi": "BCU",
+    "Maiduguri": "MIU",
+    "Calabar": "CBQ",
+    "Asaba": "ABB",
+    "Benin City": "BNI",
+    "Enugu": "ENU",
+    "Gombe": "GMO",
+    "Owerri": "QOW",
+    "Kaduna": "KAD",
+    "Ilorin": "ILR",
+    "Minna": "MXJ",
+    "Akure": "AKR",
+    "Jos": "JOS",
+    "Sokoto": "SKO",
+}
+
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
+        g.db = connect_database()
     return g.db
 
 @app.teardown_appcontext
@@ -81,18 +180,142 @@ def close_db(_error=None):
         db.close()
 
 def init_db():
-    db = sqlite3.connect(DATABASE)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS searches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            origin TEXT NOT NULL,
-            destination TEXT NOT NULL,
-            distance_km REAL,
-            created_at TEXT NOT NULL
-        )
-    """)
+    db = connect_database()
+    if db.postgres:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS farewise_users (
+                id BIGSERIAL PRIMARY KEY,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'subscriber'
+                    CHECK (role IN ('subscriber', 'admin')),
+                subscription_status TEXT NOT NULL DEFAULT 'free'
+                    CHECK (subscription_status IN ('free', 'active', 'suspended')),
+                subscription_plan TEXT NOT NULL DEFAULT 'free'
+                    CHECK (subscription_plan IN ('free', 'monthly', 'yearly')),
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS searches (
+                id BIGSERIAL PRIMARY KEY,
+                origin TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                distance_km DOUBLE PRECISION,
+                created_at TEXT NOT NULL,
+                user_id BIGINT REFERENCES farewise_users(id) ON DELETE SET NULL
+            )
+        """)
+        db.execute("""
+            ALTER TABLE searches
+            ADD COLUMN IF NOT EXISTS user_id BIGINT
+            REFERENCES farewise_users(id) ON DELETE SET NULL
+        """)
+    else:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS farewise_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'subscriber'
+                    CHECK (role IN ('subscriber', 'admin')),
+                subscription_status TEXT NOT NULL DEFAULT 'free'
+                    CHECK (subscription_status IN ('free', 'active', 'suspended')),
+                subscription_plan TEXT NOT NULL DEFAULT 'free'
+                    CHECK (subscription_plan IN ('free', 'monthly', 'yearly')),
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                origin TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                distance_km REAL,
+                created_at TEXT NOT NULL,
+                user_id INTEGER REFERENCES farewise_users(id) ON DELETE SET NULL
+            )
+        """)
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(searches)")}
+        if "user_id" not in columns:
+            db.execute(
+                "ALTER TABLE searches ADD COLUMN user_id INTEGER "
+                "REFERENCES farewise_users(id) ON DELETE SET NULL"
+            )
     db.commit()
     db.close()
+
+
+def auth_setup_ready():
+    if os.environ.get("VERCEL") == "1":
+        return bool(DATABASE_URL and app.config["SECRET_KEY"])
+    return True
+
+
+def csrf_token():
+    if not app.config["SECRET_KEY"]:
+        return ""
+    token = session.get("_csrf_token")
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+def valid_csrf():
+    token = request.form.get("csrf_token", "")
+    return bool(token and secrets.compare_digest(token, session.get("_csrf_token", "")))
+
+
+def current_user():
+    if "current_user" not in g:
+        user_id = session.get("user_id")
+        g.current_user = (
+            get_db().execute(
+                "SELECT id, email, role, subscription_status, subscription_plan "
+                "FROM farewise_users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+            if user_id
+            else None
+        )
+    return g.current_user
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if current_user() is None:
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if current_user()["role"] != "admin":
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def auth_unavailable_response():
+    return (
+        "Account features are not configured. Set DATABASE_URL and "
+        "FAREWISE_SECRET_KEY in the deployment environment.",
+        503,
+    )
+
+
+@app.context_processor
+def inject_account_context():
+    return {
+        "current_user": current_user(),
+        "csrf_token": csrf_token,
+        "auth_enabled": auth_setup_ready(),
+    }
 
 def get_road_route(origin, destination):
     """Try OSRM for road distance and driving duration; return None if unavailable."""
@@ -135,24 +358,225 @@ def estimate_straight_distance(origin, destination):
     h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     return 2 * earth_km * atan2(sqrt(h), sqrt(1 - h)) * 1.3
 
-def estimate_flight(origin, destination):
-    """Return illustrative air-travel values; this does not check airports or flights."""
-    from math import radians, sin, cos, sqrt, atan2
+def get_live_flight_offers(origin, destination, departure_date, adults):
+    """Fetch current one-way offers; return an explicit message when unavailable."""
+    origin_code = AIRPORT_CODES.get(LOCATIONS[origin]["city"])
+    destination_code = AIRPORT_CODES.get(LOCATIONS[destination]["city"])
+    if not origin_code or not destination_code:
+        return None, "Live flight prices are not available for one or both selected cities."
+    if origin_code == destination_code:
+        return None, "These locations use the same airport, so there is no flight route to price."
 
-    start, end = LOCATIONS[origin], LOCATIONS[destination]
-    lat1, lat2 = radians(start["lat"]), radians(end["lat"])
-    dlat = lat2 - lat1
-    dlon = radians(end["lon"] - start["lon"])
-    h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    distance_km = 6371 * 2 * atan2(sqrt(h), sqrt(1 - h))
+    client_id = os.environ.get("AMADEUS_CLIENT_ID")
+    client_secret = os.environ.get("AMADEUS_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return None, (
+            "Live flight prices are not connected yet. Add Amadeus API credentials "
+            "to the deployment environment to enable them."
+        )
 
-    fare = round((25000 + distance_km * 90) / 1000) * 1000
-    flight_minutes = max(35, round(distance_km / 700 * 60))
-    return {
-        "distance_km": round(distance_km, 1),
-        "fare": fare,
-        "minutes": 90 + flight_minutes,
-    }
+    base_url = os.environ.get(
+        "AMADEUS_API_URL", "https://api.amadeus.com"
+    ).rstrip("/")
+    try:
+        token_response = requests.post(
+            f"{base_url}/v1/security/oauth2/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
+            timeout=10,
+        )
+        token_response.raise_for_status()
+        access_token = token_response.json()["access_token"]
+
+        offer_response = requests.get(
+            f"{base_url}/v2/shopping/flight-offers",
+            params={
+                "originLocationCode": origin_code,
+                "destinationLocationCode": destination_code,
+                "departureDate": departure_date,
+                "adults": adults,
+                "currencyCode": "NGN",
+                "max": 5,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=12,
+        )
+        offer_response.raise_for_status()
+        payload = offer_response.json()
+        raw_offers = payload.get("data")
+        if not isinstance(raw_offers, list):
+            raise ValueError("Amadeus response did not contain an offers list.")
+
+        offers = []
+        for offer in raw_offers:
+            price = offer.get("price", {})
+            try:
+                total = Decimal(price["total"])
+            except (KeyError, InvalidOperation, TypeError):
+                continue
+            if not total.is_finite() or total <= 0:
+                continue
+
+            itineraries = offer.get("itineraries", [])
+            segments = itineraries[0].get("segments", []) if itineraries else []
+            duration = itineraries[0].get("duration", "") if itineraries else ""
+            duration_match = re.fullmatch(
+                r"PT(?:(\d+)H)?(?:(\d+)M)?", duration
+            )
+            duration_minutes = (
+                int(duration_match.group(1) or 0) * 60
+                + int(duration_match.group(2) or 0)
+                if duration_match
+                else None
+            )
+            offers.append({
+                "total": total,
+                "currency": price.get("currency", "NGN"),
+                "airlines": ", ".join(offer.get("validatingAirlineCodes", [])),
+                "stops": max(0, len(segments) - 1),
+                "duration_minutes": duration_minutes,
+            })
+
+        offers.sort(key=lambda item: item["total"])
+        return offers, None
+    except (
+        requests.RequestException,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+    ) as error:
+        app.logger.warning("Live Amadeus flight search failed: %s", error)
+        return None, "We couldn't retrieve live flight prices right now. Please try again."
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if not auth_setup_ready():
+        return auth_unavailable_response()
+    if request.method == "POST":
+        if not valid_csrf():
+            abort(400, description="Your form expired. Please try again.")
+
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 254:
+            flash("Enter a valid email address.", "error")
+        elif len(password) < 10 or len(password) > 256:
+            flash("Use a password between 10 and 256 characters.", "error")
+        else:
+            try:
+                db = get_db()
+                db.execute(
+                    "INSERT INTO farewise_users "
+                    "(email, password_hash, created_at) VALUES (?, ?, ?)",
+                    (
+                        email,
+                        generate_password_hash(password, method="scrypt"),
+                        datetime.now().isoformat(timespec="seconds"),
+                    ),
+                )
+                db.commit()
+            except (sqlite3.IntegrityError, PsycopgIntegrityError):
+                get_db().rollback()
+                flash("An account with that email already exists. Please log in.", "error")
+            else:
+                flash("Your free subscriber account is ready. You can now log in.", "success")
+                return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not auth_setup_ready():
+        return auth_unavailable_response()
+    if request.method == "POST":
+        if not valid_csrf():
+            abort(400, description="Your form expired. Please try again.")
+
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        user = get_db().execute(
+            "SELECT id, email, password_hash, subscription_status "
+            "FROM farewise_users WHERE email = ?",
+            (email,),
+        ).fetchone()
+        if (
+            user is None
+            or len(password) > 256
+            or not check_password_hash(user["password_hash"], password)
+        ):
+            flash("Email or password is incorrect.", "error")
+        else:
+            session.clear()
+            session["user_id"] = user["id"]
+            session.permanent = True
+            if user["subscription_status"] == "suspended":
+                flash("Your account is suspended. Contact support for help.", "error")
+            return redirect(url_for("index"))
+
+    return render_template("login.html")
+
+
+@app.post("/logout")
+@login_required
+def logout():
+    if not valid_csrf():
+        abort(400, description="Your form expired. Please try again.")
+    session.clear()
+    return redirect(url_for("index"))
+
+
+@app.route("/account")
+@login_required
+def account():
+    user = current_user()
+    return render_template("account.html", user=user)
+
+
+@app.route("/admin", methods=["GET", "POST"])
+@admin_required
+def admin_dashboard():
+    if not auth_setup_ready():
+        return auth_unavailable_response()
+    db = get_db()
+    if request.method == "POST":
+        if not valid_csrf():
+            abort(400, description="Your form expired. Please try again.")
+
+        try:
+            subscriber_id = int(request.form.get("subscriber_id", ""))
+        except ValueError:
+            abort(400, description="Invalid subscriber.")
+
+        status = request.form.get("subscription_status", "")
+        plan = request.form.get("subscription_plan", "")
+        if status not in {"free", "active", "suspended"} or plan not in {
+            "free", "monthly", "yearly"
+        }:
+            abort(400, description="Invalid subscription change.")
+
+        update = db.execute(
+            "UPDATE farewise_users SET subscription_status = ?, subscription_plan = ? "
+            "WHERE id = ? AND role = 'subscriber'",
+            (status, plan, subscriber_id),
+        )
+        if update.rowcount != 1:
+            db.rollback()
+            abort(404, description="Subscriber not found.")
+        db.commit()
+        flash("Subscriber access updated.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    subscribers = db.execute(
+        "SELECT id, email, subscription_status, subscription_plan, created_at "
+        "FROM farewise_users WHERE role = 'subscriber' ORDER BY created_at DESC"
+    ).fetchall()
+    return render_template("admin.html", subscribers=subscribers)
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -160,12 +584,31 @@ def index():
     error = None
     origin = request.form.get("origin", "abuja_city_gate")
     destination = request.form.get("destination", "abuja_area1")
+    departure_date = request.form.get(
+        "departure_date", (date.today() + timedelta(days=1)).isoformat()
+    )
+    adults = request.form.get("adults", "1")
+    user = current_user()
 
     if request.method == "POST":
-        if origin not in LOCATIONS or destination not in LOCATIONS:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", departure_date):
+            parsed_departure_date = None
+        else:
+            try:
+                parsed_departure_date = date.fromisoformat(departure_date)
+            except ValueError:
+                parsed_departure_date = None
+
+        if user and user["subscription_status"] == "suspended":
+            error = "Your account is suspended. Contact support for help."
+        elif origin not in LOCATIONS or destination not in LOCATIONS:
             error = "Please choose a valid starting point and destination."
         elif origin == destination:
             error = "Choose two different locations to compare a journey."
+        elif parsed_departure_date is None or parsed_departure_date < date.today():
+            error = "Choose today or a future departure date."
+        elif adults not in {str(count) for count in range(1, 10)}:
+            error = "Choose between 1 and 9 adult passengers."
         else:
             road = get_road_route(origin, destination)
             if road:
@@ -193,11 +636,20 @@ def index():
 
             cheapest = min(options, key=lambda item: item["fare"])
             fastest = min(options, key=lambda item: item["minutes"])
+            flight_offers, flight_error = get_live_flight_offers(
+                origin, destination, departure_date, int(adults)
+            )
             results = {
                 "origin": LOCATIONS[origin],
                 "destination": LOCATIONS[destination],
                 "distance_km": round(distance_km, 1),
-                "flight": estimate_flight(origin, destination),
+                "flight_offers": flight_offers,
+                "flight_error": flight_error,
+                "flight_checked_at": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%d %H:%M UTC"
+                ),
+                "departure_date": departure_date,
+                "adults": int(adults),
                 "drive_minutes": round(drive_minutes),
                 "source": source,
                 "alternatives": alternatives,
@@ -207,15 +659,22 @@ def index():
             }
             db = get_db()
             db.execute(
-                "INSERT INTO searches (origin, destination, distance_km, created_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO searches "
+                "(origin, destination, distance_km, created_at, user_id) "
+                "VALUES (?, ?, ?, ?, ?)",
                 (LOCATIONS[origin]["label"], LOCATIONS[destination]["label"],
-                 round(distance_km, 1), datetime.now().isoformat(timespec="seconds"))
+                 round(distance_km, 1), datetime.now().isoformat(timespec="seconds"),
+                 user["id"] if user else None)
             )
             db.commit()
 
-    history = get_db().execute(
-        "SELECT origin, destination, distance_km, created_at FROM searches ORDER BY id DESC LIMIT 5"
-    ).fetchall()
+    history = []
+    if user:
+        history = get_db().execute(
+            "SELECT origin, destination, distance_km, created_at FROM searches "
+            "WHERE user_id = ? ORDER BY id DESC LIMIT 5",
+            (user["id"],),
+        ).fetchall()
 
     return render_template(
         "index.html",
@@ -224,6 +683,9 @@ def index():
         error=error,
         origin=origin,
         destination=destination,
+        departure_date=departure_date,
+        adults=adults,
+        today=date.today().isoformat(),
         history=history
     )
 
@@ -251,6 +713,10 @@ def service_worker():
 @app.route("/app.js")
 def app_script():
     return send_from_directory(os.path.join(BASE_DIR, "static"), "app.js")
+
+@app.route("/offline.html")
+def offline_page():
+    return send_from_directory(os.path.join(BASE_DIR, "static"), "offline.html")
 
 @app.route("/icons/<path:filename>")
 def app_icon(filename):

@@ -1,6 +1,6 @@
-const CACHE_NAME = "farewise-shell-v1";
+const CACHE_NAME = "farewise-shell-v3";
 const APP_SHELL = [
-  "/",
+  "/offline.html",
   "/static/style.css",
   "/app.js",
   "/manifest.webmanifest",
@@ -39,20 +39,18 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
-          }
-          return response;
-        })
-        .catch(async () => (await caches.match("/")) || Response.error())
+        .catch(async () =>
+          (await caches.match("/offline.html")) ||
+          new Response("You are offline. Reconnect to use FareWise.", {
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          })
+        )
     );
     return;
   }
 
-  if (url.pathname.startsWith("/static/") ||
-      url.pathname === "/app.js" || url.pathname === "/manifest.webmanifest") {
+  if (url.pathname.startsWith("/static/") || url.pathname === "/app.js" ||
+      url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
