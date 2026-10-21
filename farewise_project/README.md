@@ -59,7 +59,7 @@ WHERE email = lower('admin@example.com');
 
 ## Install FareWise on a phone
 - Deploy the app over HTTPS, then open its URL on your phone.
-- On Android, tap **Install app** if offered, or choose **Install app** / **Add to Home screen** from the browser menu.
+- Tap the visible **Install app** button. Supported Android browsers open their install prompt; on iPhone or other browsers, the button opens instructions for adding FareWise from the browser menu.
 - On iPhone, open the URL in Safari, tap **Share**, then choose **Add to Home Screen**.
 - If installation is unavailable, confirm `/manifest.webmanifest`, `/service-worker.js`, `/static/icons/icon-192.png`, and `/static/icons/icon-512.png` all load without a 404 on the deployed site.
 - FareWise is an installable web app, not a Play Store or Apple App Store package. Its page shell and stylesheet can load offline after a successful online visit; fare searches still need the server.

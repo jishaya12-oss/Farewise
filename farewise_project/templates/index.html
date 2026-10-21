@@ -30,7 +30,6 @@
       <a class="account-signup" href="{{ url_for('register') }}">Sign up</a>
       {% endif %}
     </nav>
-    <button class="install-button" id="install-app" type="button" hidden>Install app</button>
   </header>
 
   <main class="container">
@@ -39,11 +38,14 @@
         <p class="eyebrow">TRAVEL SMARTER</p>
         <h1>Compare your journey.<br><span>Choose what works for you.</span></h1>
         <p class="hero-copy">Compare estimated transport costs and journey times before you travel.</p>
-        <details class="install-help">
-          <summary>How to install on your phone</summary>
-          <p><strong>Android:</strong> in Chrome, tap <strong>Install app</strong> if it appears, or open the menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p>
-          <p><strong>iPhone:</strong> open this page in <strong>Safari</strong>, tap <strong>Share</strong>, scroll down, then tap <strong>Add to Home Screen</strong> and <strong>Add</strong>. The install button is not available in iPhone browsers.</p>
-        </details>
+        <div class="install-actions">
+          <button class="install-button" id="install-app" type="button" aria-controls="install-help" aria-expanded="false">Install app</button>
+          <details class="install-help" id="install-help">
+            <summary>Phone installation instructions</summary>
+            <p><strong>Android:</strong> in Chrome, choose <strong>Install app</strong> when prompted, or open the browser menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p>
+            <p><strong>iPhone:</strong> open this page in <strong>Safari</strong>, tap <strong>Share</strong>, scroll down, then tap <strong>Add to Home Screen</strong> and <strong>Add</strong>.</p>
+          </details>
+        </div>
       </div>
       <div class="hero-mark" aria-hidden="true">₦</div>
     </section>

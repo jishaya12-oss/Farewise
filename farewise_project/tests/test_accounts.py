@@ -51,6 +51,25 @@ class AccountFlowTests(unittest.TestCase):
         self.assertIsNotNone(match)
         return match.group(1).decode()
 
+    def test_install_action_and_pwa_assets_are_available(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="install-app"', response.data)
+        self.assertNotIn(b'id="install-app" type="button" hidden', response.data)
+        self.assertIn(b"Add to Home Screen", response.data)
+
+        for path in (
+            "/manifest.webmanifest",
+            "/service-worker.js",
+            "/app.js",
+            "/static/icons/icon-192.png",
+            "/static/icons/icon-512.png",
+        ):
+            with self.subTest(path=path):
+                asset = self.client.get(path)
+                self.assertEqual(asset.status_code, 200)
+                asset.close()
+
     def register(self, email, password="correct-horse-battery"):
         token = self.csrf_token("/register")
         return self.client.post(
