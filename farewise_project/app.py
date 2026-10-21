@@ -203,7 +203,8 @@ def init_db():
                 destination TEXT NOT NULL,
                 distance_km DOUBLE PRECISION,
                 created_at TEXT NOT NULL,
-                user_id BIGINT REFERENCES farewise_users(id) ON DELETE SET NULL
+                user_id BIGINT REFERENCES farewise_users(id) ON DELETE SET NULL,
+                guest_id TEXT
             )
         """)
         db.execute("""
@@ -211,6 +212,18 @@ def init_db():
             ADD COLUMN IF NOT EXISTS user_id BIGINT
             REFERENCES farewise_users(id) ON DELETE SET NULL
         """)
+        db.execute("""
+            ALTER TABLE searches
+            ADD COLUMN IF NOT EXISTS guest_id TEXT
+        """)
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS searches_user_history "
+            "ON searches (user_id, id DESC)"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS searches_guest_history "
+            "ON searches (guest_id, id DESC)"
+        )
     else:
         db.execute("""
             CREATE TABLE IF NOT EXISTS farewise_users (
@@ -233,7 +246,8 @@ def init_db():
                 destination TEXT NOT NULL,
                 distance_km REAL,
                 created_at TEXT NOT NULL,
-                user_id INTEGER REFERENCES farewise_users(id) ON DELETE SET NULL
+                user_id INTEGER REFERENCES farewise_users(id) ON DELETE SET NULL,
+                guest_id TEXT
             )
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(searches)")}
@@ -242,6 +256,16 @@ def init_db():
                 "ALTER TABLE searches ADD COLUMN user_id INTEGER "
                 "REFERENCES farewise_users(id) ON DELETE SET NULL"
             )
+        if "guest_id" not in columns:
+            db.execute("ALTER TABLE searches ADD COLUMN guest_id TEXT")
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS searches_user_history "
+            "ON searches (user_id, id DESC)"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS searches_guest_history "
+            "ON searches (guest_id, id DESC)"
+        )
     db.commit()
     db.close()
 
@@ -657,36 +681,63 @@ def index():
                 "cheapest": cheapest["name"],
                 "fastest": fastest["name"],
             }
+            guest_id = None
+            if not user:
+                guest_id = session.get("guest_id")
+                if not guest_id:
+                    guest_id = secrets.token_urlsafe(32)
+                    session["guest_id"] = guest_id
             created_at = datetime.now().isoformat(timespec="seconds")
-            if user:
-                db = get_db()
-                db.execute(
-                    "INSERT INTO searches "
-                    "(origin, destination, distance_km, created_at, user_id) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (LOCATIONS[origin]["label"], LOCATIONS[destination]["label"],
-                     round(distance_km, 1), created_at, user["id"])
-                )
-                db.commit()
-            else:
-                recent_searches = session.get("recent_searches", [])
-                recent_searches.insert(0, {
-                    "origin": LOCATIONS[origin]["label"],
-                    "destination": LOCATIONS[destination]["label"],
-                    "distance_km": round(distance_km, 1),
-                    "created_at": created_at,
-                })
-                session["recent_searches"] = recent_searches[:5]
+            db = get_db()
+            db.execute(
+                "INSERT INTO searches "
+                "(origin, destination, distance_km, created_at, user_id, guest_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    LOCATIONS[origin]["label"],
+                    LOCATIONS[destination]["label"],
+                    round(distance_km, 1),
+                    created_at,
+                    user["id"] if user else None,
+                    guest_id,
+                ),
+            )
+            db.commit()
 
     history = []
     if user:
         history = get_db().execute(
             "SELECT origin, destination, distance_km, created_at FROM searches "
-            "WHERE user_id = ? ORDER BY id DESC LIMIT 5",
+            "WHERE user_id = ? ORDER BY id DESC",
             (user["id"],),
         ).fetchall()
     else:
-        history = session.get("recent_searches", [])
+        guest_id = session.get("guest_id")
+        legacy_history = session.pop("recent_searches", [])
+        db = get_db()
+        if not guest_id:
+            guest_id = secrets.token_urlsafe(32)
+            session["guest_id"] = guest_id
+        for item in reversed(legacy_history):
+            db.execute(
+                "INSERT INTO searches "
+                "(origin, destination, distance_km, created_at, guest_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    item["origin"],
+                    item["destination"],
+                    item["distance_km"],
+                    item["created_at"],
+                    guest_id,
+                ),
+            )
+        if legacy_history:
+            db.commit()
+        history = db.execute(
+            "SELECT origin, destination, distance_km, created_at FROM searches "
+            "WHERE guest_id = ? ORDER BY id DESC",
+            (guest_id,),
+        ).fetchall()
 
     location_keys = {
         place["label"]: key for key, place in LOCATIONS.items()

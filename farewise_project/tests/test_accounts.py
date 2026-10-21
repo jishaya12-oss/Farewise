@@ -321,9 +321,32 @@ class AccountFlowTests(unittest.TestCase):
         self.assertEqual(repeated_search.status_code, 200)
         self.assertGreaterEqual(repeated_search.data.count(b"Search again"), 2)
 
+        for _ in range(5):
+            with patch.object(
+                farewise,
+                "get_road_route",
+                return_value={
+                    "distance_km": 800,
+                    "drive_minutes": 900,
+                    "source": "Test road estimate",
+                    "alternatives": 1,
+                },
+            ):
+                response = self.client.post(
+                    "/",
+                    data={
+                        "origin": "abuja_city_gate",
+                        "destination": "lagos_tbs",
+                        "departure_date": tomorrow,
+                        "adults": "1",
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+
         next_page = self.client.get("/")
         self.assertIn(b"Your recent journeys", next_page.data)
         self.assertIn(b"Abuja City Gate", next_page.data)
+        self.assertEqual(next_page.data.count(b"Search again"), 7)
 
         other_browser = farewise.app.test_client()
         private_page = other_browser.get("/")
@@ -331,9 +354,9 @@ class AccountFlowTests(unittest.TestCase):
 
         with farewise.app.app_context():
             guest_search_count = farewise.get_db().execute(
-                "SELECT COUNT(*) AS count FROM searches WHERE user_id IS NULL"
+                "SELECT COUNT(*) AS count FROM searches WHERE guest_id IS NOT NULL"
             ).fetchone()["count"]
-        self.assertEqual(guest_search_count, 0)
+        self.assertEqual(guest_search_count, 7)
 
     def test_production_auth_requires_persistent_database_and_secret(self):
         original_vercel = os.environ.get("VERCEL")
@@ -359,6 +382,7 @@ class AccountFlowTests(unittest.TestCase):
                 for row in farewise.get_db().execute("PRAGMA table_info(searches)")
             }
         self.assertIn("user_id", columns)
+        self.assertIn("guest_id", columns)
 
 
 class LiveFlightQuoteTests(unittest.TestCase):
