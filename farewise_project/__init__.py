@@ -1,0 +1,1 @@
+"""FareWise Flask application package."""

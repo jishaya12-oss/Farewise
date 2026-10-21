@@ -5,7 +5,10 @@ from flask import Flask, render_template, request, g
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, "farewise.db")
+DATABASE = os.environ.get("FAREWISE_DATABASE_PATH") or os.path.join(
+    "/tmp" if os.environ.get("VERCEL") == "1" else BASE_DIR,
+    "farewise.db",
+)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("FAREWISE_SECRET_KEY", "dev-only-change-this-key")

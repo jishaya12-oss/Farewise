@@ -28,6 +28,14 @@ Open http://127.0.0.1:5000 in your browser.
 
 If your terminal says `python3` is missing, install Python 3 using your Linux distribution's package manager.
 
+## Deploy on Vercel
+- The Git repository root contains a Vercel entrypoint (`app.py`) and `requirements.txt` that load the Flask app from `farewise_project/`. Leave Vercel's **Root Directory** set to the repository root.
+- Vercel serves the stylesheet from `public/static/style.css`; the original `farewise_project/static/style.css` remains in place for local Flask development.
+- No separate start command is needed.
+- Commit and push these deployment files to the Git branch connected to Vercel, then redeploy. Vercel cannot deploy uncommitted files from your computer.
+- Vercel's function filesystem is not persistent. This app uses `/tmp/farewise.db` there so it can start, but recent-search history may disappear between function instances or deployments. Use a hosted database for persistent history.
+- To override the database location, set `FAREWISE_DATABASE_PATH` to a writable path.
+
 ## Important limitations
 - Location list includes a representative city in all 36 states and the FCT, plus additional approximate demo landmarks in selected cities. These are not live GPS pickup points.
 - Fare amounts are illustrative estimates generated from a simple rate formula. They are NOT current quotes from transport companies.
