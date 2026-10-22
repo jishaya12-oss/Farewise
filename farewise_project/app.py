@@ -683,26 +683,28 @@ def index():
             }
             guest_id = None
             if not user:
-                guest_id = session.get("guest_id")
-                if not guest_id:
-                    guest_id = secrets.token_urlsafe(32)
-                    session["guest_id"] = guest_id
-            created_at = datetime.now().isoformat(timespec="seconds")
-            db = get_db()
-            db.execute(
-                "INSERT INTO searches "
-                "(origin, destination, distance_km, created_at, user_id, guest_id) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    LOCATIONS[origin]["label"],
-                    LOCATIONS[destination]["label"],
-                    round(distance_km, 1),
-                    created_at,
-                    user["id"] if user else None,
-                    guest_id,
-                ),
-            )
-            db.commit()
+                if app.config["SECRET_KEY"]:
+                    guest_id = session.get("guest_id")
+                    if not guest_id:
+                        guest_id = secrets.token_urlsafe(32)
+                        session["guest_id"] = guest_id
+            if user or app.config["SECRET_KEY"]:
+                created_at = datetime.now().isoformat(timespec="seconds")
+                db = get_db()
+                db.execute(
+                    "INSERT INTO searches "
+                    "(origin, destination, distance_km, created_at, user_id, guest_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        LOCATIONS[origin]["label"],
+                        LOCATIONS[destination]["label"],
+                        round(distance_km, 1),
+                        created_at,
+                        user["id"] if user else None,
+                        guest_id,
+                    ),
+                )
+                db.commit()
 
     history = []
     if user:
@@ -712,32 +714,33 @@ def index():
             (user["id"],),
         ).fetchall()
     else:
-        guest_id = session.get("guest_id")
-        legacy_history = session.pop("recent_searches", [])
-        db = get_db()
-        if not guest_id:
-            guest_id = secrets.token_urlsafe(32)
-            session["guest_id"] = guest_id
-        for item in reversed(legacy_history):
-            db.execute(
-                "INSERT INTO searches "
-                "(origin, destination, distance_km, created_at, guest_id) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    item["origin"],
-                    item["destination"],
-                    item["distance_km"],
-                    item["created_at"],
-                    guest_id,
-                ),
-            )
-        if legacy_history:
-            db.commit()
-        history = db.execute(
-            "SELECT origin, destination, distance_km, created_at FROM searches "
-            "WHERE guest_id = ? ORDER BY id DESC",
-            (guest_id,),
-        ).fetchall()
+        if app.config["SECRET_KEY"]:
+            guest_id = session.get("guest_id")
+            legacy_history = session.pop("recent_searches", [])
+            db = get_db()
+            if not guest_id:
+                guest_id = secrets.token_urlsafe(32)
+                session["guest_id"] = guest_id
+            for item in reversed(legacy_history):
+                db.execute(
+                    "INSERT INTO searches "
+                    "(origin, destination, distance_km, created_at, guest_id) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        item["origin"],
+                        item["destination"],
+                        item["distance_km"],
+                        item["created_at"],
+                        guest_id,
+                    ),
+                )
+            if legacy_history:
+                db.commit()
+            history = db.execute(
+                "SELECT origin, destination, distance_km, created_at FROM searches "
+                "WHERE guest_id = ? ORDER BY id DESC",
+                (guest_id,),
+            ).fetchall()
 
     location_keys = {
         place["label"]: key for key, place in LOCATIONS.items()

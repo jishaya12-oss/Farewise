@@ -375,6 +375,62 @@ class AccountFlowTests(unittest.TestCase):
             else:
                 os.environ["VERCEL"] = original_vercel
 
+    def test_journey_comparison_works_when_production_session_secret_is_missing(self):
+        original_vercel = os.environ.get("VERCEL")
+        original_database_url = farewise.DATABASE_URL
+        original_secret = farewise.app.config["SECRET_KEY"]
+        original_testing = farewise.app.config["TESTING"]
+        try:
+            os.environ["VERCEL"] = "1"
+            farewise.DATABASE_URL = None
+            farewise.app.config.update(TESTING=False, SECRET_KEY=None)
+            tomorrow = (date.today() + timedelta(days=1)).isoformat()
+            with (
+                patch.object(
+                    farewise,
+                    "get_road_route",
+                    return_value={
+                        "distance_km": 800,
+                        "drive_minutes": 900,
+                        "source": "Test road estimate",
+                        "alternatives": 1,
+                    },
+                ),
+                patch.object(
+                    farewise,
+                    "get_live_flight_offers",
+                    return_value=(None, "Live prices unavailable in this test."),
+                ),
+            ):
+                response = self.client.post(
+                    "/",
+                    data={
+                        "origin": "abuja_city_gate",
+                        "destination": "lagos_tbs",
+                        "departure_date": tomorrow,
+                        "adults": "1",
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"YOUR COMPARISON", response.data)
+            self.assertNotIn(b"Your recent journeys", response.data)
+            with farewise.app.app_context():
+                search_count = farewise.get_db().execute(
+                    "SELECT COUNT(*) AS count FROM searches"
+                ).fetchone()["count"]
+            self.assertEqual(search_count, 0)
+        finally:
+            farewise.DATABASE_URL = original_database_url
+            farewise.app.config.update(
+                TESTING=original_testing,
+                SECRET_KEY=original_secret,
+            )
+            if original_vercel is None:
+                os.environ.pop("VERCEL", None)
+            else:
+                os.environ["VERCEL"] = original_vercel
+
     def test_legacy_search_table_is_migrated_for_private_history(self):
         with farewise.app.app_context():
             columns = {

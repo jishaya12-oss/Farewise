@@ -38,7 +38,7 @@ If your terminal says `python3` is missing, install Python 3 using your Linux di
 - No separate start command is needed.
 - Commit and push these deployment files to the Git branch connected to Vercel, then redeploy. Vercel cannot deploy uncommitted files from your computer.
 - Subscriber accounts on Vercel require a persistent Supabase PostgreSQL database; configure `DATABASE_URL` as a Vercel environment variable using your Supabase PostgreSQL connection string.
-- Set `FAREWISE_SECRET_KEY` in Vercel to a strong random secret (for example, generate one with `openssl rand -hex 32`). Do not commit either secret.
+- Set `FAREWISE_SECRET_KEY` in Vercel to a strong random secret (for example, generate one with `openssl rand -hex 32`). This enables signed sessions and private browser journey history; comparisons still work without it. Do not commit either secret.
 - Live flight fares require Amadeus production API credentials. Add `AMADEUS_CLIENT_ID` and `AMADEUS_CLIENT_SECRET` as Vercel environment variables; never put these secrets in source code or send them in chat. The default API endpoint is `https://api.amadeus.com`. `AMADEUS_API_URL=https://test.api.amadeus.com` is for sandbox testing only and does not provide live prices.
 - Create an Amadeus for Developers account and request production access at [developers.amadeus.com](https://developers.amadeus.com/). Until production credentials are configured, FareWise shows a clear message instead of inventing a flight fare.
 - Vercel's function filesystem is temporary. Without `DATABASE_URL`, account registration and login return a setup error rather than saving accounts to an unreliable temporary database.
